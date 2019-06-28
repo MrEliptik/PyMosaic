@@ -12,6 +12,13 @@ import scipy.cluster
 
 import time
 
+def resize(image, factor):
+    width = int(image.shape[1] * factor)
+    height = int(image.shape[0] * factor)
+    dim = (width, height)
+    # resize image
+    return cv.resize(image, dim, interpolation = cv.INTER_AREA)
+
 def getDominantColor(image, num_clusters=5):
     shape = image.shape
     ar = image.reshape(scipy.product(shape[:2]), shape[2]).astype(float)
@@ -26,58 +33,80 @@ def getDominantColor(image, num_clusters=5):
 
     return peak
 
-target_path = 'images/target/lena.jpg'
-input_path = 'images/input/'
-image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
-input_files = []
+def createMosaic(target_img, input_imgs, repeat=True, resize_factor=1, keep_original=False):
+    """ Recreate a target image as a mosaic with multiple images
 
-target_im = cv.imread(target_path)
+    Args
+        target_img : image to reproduce
+        input_imgs : images used to reproduce target_img
+        repeat : use multiple time input images, default=True
+        resize_factor : resize factor for target_img, default=1 (no resize)
+        keep_original : keep the original and returns it
 
-for subdir, _, files in os.walk(input_path):
-    print('[INFO] Working on: ' + str(subdir))
-    for _file in files:
-        if str(_file).lower().endswith(image_extensions):
-            input_files.append(os.path.join(subdir, _file))
+    Returns
+        mosaic            : the mosaic image
 
-input_files_size = len(input_files)
+        or
 
-# TODO: Remove, just for testing
-input_files_size = 100
-print('[INFO] Found {} input files.'.format(input_files_size))
+        mosaic, original : the mosaic image, the original image
+    """
+    if resize_factor != 1:
+        resized = resize(target_img, resize_factor)
+    
+    if keep_original:
+        original = resized.copy()
 
-# resize params
-scale_percent = 35 # percent of original size
-width = int(target_im.shape[1] * scale_percent / 100)
-height = int(target_im.shape[0] * scale_percent / 100)
-dim = (width, height)
-# resize image
-resized = cv.resize(target_im, dim, interpolation = cv.INTER_AREA)
-original = resized.copy()
+    #kernel_size = resized.shape[1]//len(input_imgs)
+    kernel_size = resized.shape[1]//100
 
-kernel_size = resized.shape[1]//input_files_size
+    col = resized.shape[1]//kernel_size
+    row = resized.shape[0]//kernel_size
+    for i in range(row):
+        for j in range(col):
+            if i == 0:
+                x1 = j*kernel_size
+                y1 = i*kernel_size
+                x2 = kernel_size+(j*kernel_size)
+                y2 = kernel_size+(i*kernel_size)
+                color = getDominantColor(resized[y1:y2, x1:x2,:])
+                cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)         
+            else:
+                x1 = 1+(j*kernel_size)
+                y1 = 1+(i*kernel_size)
+                x2 = kernel_size+(j*kernel_size)
+                y2 = kernel_size+(i*kernel_size)
+                color = getDominantColor(resized[y1:y2, x1:x2,:])
+                cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)
+    if keep_original:
+        return resized, original
+    else:
+        return resized
 
-col = resized.shape[1]//kernel_size
-row = resized.shape[0]//kernel_size
-for i in range(row):
-    for j in range(col):
-        #color = (random.random()*255, random.random()*255, random.random()*255)
-        if i == 0:
-            x1 = j*kernel_size
-            y1 = i*kernel_size
-            x2 = kernel_size+(j*kernel_size)
-            y2 = kernel_size+(i*kernel_size)
-            color = getDominantColor(resized[y1:y2, x1:x2,:])
-            cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)         
-        else:
-            x1 = 1+(j*kernel_size)
-            y1 = 1+(i*kernel_size)
-            x2 = kernel_size+(j*kernel_size)
-            y2 = kernel_size+(i*kernel_size)
-            color = getDominantColor(resized[y1:y2, x1:x2,:])
-            cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)
-        
-cv.imshow('lena', original)
-cv.imshow('colors', resized)
+def main():
+    target_path = 'images/target/lena.jpg'
+    input_path = 'images/input/'
+    image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
+    input_files = []
 
-cv.waitKey(0)
+    target_im = cv.imread(target_path)
+
+    for subdir, _, files in os.walk(input_path):
+        print('[INFO] Working on: ' + str(subdir))
+        for _file in files:
+            if str(_file).lower().endswith(image_extensions):
+                input_files.append(os.path.join(subdir, _file))
+
+    print('[INFO] Found {} input files.'.format(len(input_files)))
+
+    mosaic, original = createMosaic(target_im, input_files, repeat=True, resize_factor=0.30, keep_original=True)
+            
+    cv.imshow('lena', original)
+    cv.imshow('colors', mosaic)
+
+    cv.waitKey(0)
+
+if __name__ == "__main__":
+    main()
+
+
 
