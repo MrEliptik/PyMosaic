@@ -43,6 +43,45 @@ def findBestColorMatch(target, dominant_colors):
     # closest value in the list
     return min(dominant_colors, key=lambda x: distance(x, target))
 
+def visualizeDominantColors(target_im, images, resize_factor=1, keep_original=False):
+    if resize_factor != 1:
+        resized = resize(target_img, resize_factor)
+    else:
+        resized = target_img
+    
+    if keep_original:
+        original = resized.copy()
+
+    # Copy image to create the mosaic
+    mosaic = np.zeros(resized.shape, np.uint8)
+
+    #kernel_size = resized.shape[1]//len(input_imgs)
+    kernel_size = resized.shape[1]//120
+
+    col = resized.shape[1]//kernel_size
+    row = resized.shape[0]//kernel_size
+    for i in range(row):
+        for j in range(col):
+            if i == 0:
+                x1 = j*kernel_size
+                y1 = i*kernel_size
+                x2 = kernel_size+(j*kernel_size)
+                y2 = kernel_size+(i*kernel_size)
+                color = getDominantColor(resized[y1:y2, x1:x2,:])
+                cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)         
+            else:
+                x1 = 1+(j*kernel_size)
+                y1 = 1+(i*kernel_size)
+                x2 = kernel_size+(j*kernel_size)
+                y2 = kernel_size+(i*kernel_size)
+                color = getDominantColor(resized[y1:y2, x1:x2,:])
+                cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)
+
+    if keep_original:
+        return mosaic, original
+    else:
+        return mosaic
+
 def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor=1, keep_original=False):
     """ Recreate a target image as a mosaic with multiple images
 
@@ -136,6 +175,8 @@ def main():
     image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
     input_files = []
     target_im = cv.imread(target_path)
+    target_im = cv.cvtColor(target_im, cv.COLOR_BGR2GRAY)
+    target_im = cv.cvtColor(target_im, cv.COLOR_GRAY2BGR)
 
     for subdir, _, files in os.walk(input_path):
         print('[INFO] Working on: ' + str(subdir))
@@ -149,13 +190,13 @@ def main():
     images = []
     for file in input_files:
         im = cv.imread(file)
-        images.append(resize(im, 0.2))
+        images.append(cv.cvtColor(cv.cvtColor(resize(im, 0.2), cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR))
 
     # Create mapping for each image
     dominant_colors = getDominantColors(images)
 
     # Create the mosaic
-    mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=0.4, keep_original=True)
+    mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=1, keep_original=True)
 
     print('[Info] Finished, took {} ms'.format(time.time() - start))       
 
