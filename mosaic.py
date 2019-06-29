@@ -3,6 +3,8 @@ import random
 import cv2 as cv
 import numpy as np
 
+import argparse
+
 import struct
 from PIL import Image
 import numpy as np
@@ -11,7 +13,6 @@ import scipy.misc
 import scipy.cluster
 
 import imageio
-
 
 import time
 
@@ -131,8 +132,6 @@ def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor
 
                 # Resize and put the image in the corresponding rectangle
                 mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
-
-                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)         
             else:
                 x1 = 1+(j*kernel_size)
                 y1 = 1+(i*kernel_size)
@@ -146,14 +145,6 @@ def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor
                 # Resize and put the image in the corresponding rectangle
                 mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
 
-                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)
-
-                #color_rect = np.zeros((50,50,3), np.uint8)
-                #cv.rectangle(color_rect, (0, 0), (50, 50), color, -1)
-                #cv.imshow('color', color_rect)
-                #cv.imshow('match', images[dominant_colors.index(match)])
-                #cv.waitKey(0)
-                #cv.destroyAllWindows()
     if keep_original:
         return mosaic, original
     else:
@@ -167,18 +158,20 @@ def getDominantColors(images):
 
     return dominant_colors 
 
-
-def main():
+def main(args):
     start = time.time()
-    target_path = 'images/target/bond.jpg'
-    input_path = 'images/input/'
+    #target_path = 'images/target/bond.jpg'
+    #input_path = 'images/input/'
     image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
     input_files = []
-    target_im = cv.imread(target_path)
-    target_im = cv.cvtColor(target_im, cv.COLOR_BGR2GRAY)
-    target_im = cv.cvtColor(target_im, cv.COLOR_GRAY2BGR)
+    target_im = cv.imread(args.target_im)
 
-    for subdir, _, files in os.walk(input_path):
+    if args.grayscale:
+        # Convert to grayscale and back to BGR to
+        # keep the 3 channels
+        target_im = cv.cvtColor(cv.cvtColor(target_im, cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR)
+
+    for subdir, _, files in os.walk(args.inputs):
         print('[INFO] Working on: ' + str(subdir))
         for _file in files:
             if str(_file).lower().endswith(image_extensions):
@@ -190,7 +183,11 @@ def main():
     images = []
     for file in input_files:
         im = cv.imread(file)
-        images.append(cv.cvtColor(cv.cvtColor(resize(im, 0.2), cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR))
+        if args.grayscale:
+            # TODO: is this the best way to do it ??
+            images.append(cv.cvtColor(cv.cvtColor(resize(im, 0.2), cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR))
+        else:
+            images.append(resize(im, 0.2))
 
     # Create mapping for each image
     dominant_colors = getDominantColors(images)
@@ -198,7 +195,7 @@ def main():
     # Create the mosaic
     mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=1, keep_original=True)
 
-    print('[Info] Finished, took {} ms'.format(time.time() - start))       
+    print('[Info] Finished, took {} s'.format(time.time() - start))       
 
     cv.imshow('lena', original)
     cv.imshow('colors', mosaic)
@@ -206,6 +203,17 @@ def main():
     cv.waitKey(0)
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description='Use many images to recreate a target image as a mosaic.')
+    parser.add_argument('--target_im', type=str, required=True, help='Path to target image')
+    parser.add_argument('--inputs', type=str, required=True, help='Path to input images')
+    parser.add_argument('--resize_factor', type=float, default=1.0, help='Factor to resize target image')
+    parser.add_argument('--grayscale', action='store_true', default=False, help='Convert to grayscale')
+    parser.add_argument('--pixel_density', type=float, default=0.7, 
+        help='Will effect number of images used to create the mosaic. 1 is 1 image per pixel, default=0.7')
+
+    args = parser.parse_args()
+
+    main(args)
 
 
