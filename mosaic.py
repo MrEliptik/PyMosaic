@@ -3,6 +3,8 @@ import random
 import cv2 as cv
 import numpy as np
 
+import argparse
+
 import struct
 from PIL import Image
 import numpy as np
@@ -140,13 +142,18 @@ def getDominantColors(images):
 @timeit
 def main():
     start = time.time()
-    target_path = 'images/target/bond.jpg'
-    input_path = 'images/input/'
+    #target_path = 'images/target/bond.jpg'
+    #input_path = 'images/input/'
     image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
     input_files = []
-    target_im = cv.imread(target_path)
+    target_im = cv.imread(args.target_im)
 
-    for subdir, _, files in os.walk(input_path):
+    if args.grayscale:
+        # Convert to grayscale and back to BGR to
+        # keep the 3 channels
+        target_im = cv.cvtColor(cv.cvtColor(target_im, cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR)
+
+    for subdir, _, files in os.walk(args.inputs):
         print('[INFO] Working on: ' + str(subdir))
         for _file in files:
             if str(_file).lower().endswith(image_extensions):
@@ -158,7 +165,11 @@ def main():
     images = []
     for file in input_files:
         im = cv.imread(file)
-        images.append(resize(im, 0.2))
+        if args.grayscale:
+            # TODO: is this the best way to do it ??
+            images.append(cv.cvtColor(cv.cvtColor(resize(im, 0.2), cv.COLOR_BGR2GRAY), cv.COLOR_GRAY2BGR))
+        else:
+            images.append(resize(im, 0.2))
 
     # Create a pool of thread 
     # s(same as number of cores)
@@ -171,7 +182,7 @@ def main():
     #dominant_colors = getDominantColors(images)
 
     # Create the mosaic
-    mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=0.4, keep_original=True)
+    mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=1, keep_original=True)
 
     print('[Info] Finished, took {} s'.format(time.time() - start))       
 
@@ -181,6 +192,17 @@ def main():
     cv.waitKey(0)
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description='Use many images to recreate a target image as a mosaic.')
+    parser.add_argument('--target_im', type=str, required=True, help='Path to target image')
+    parser.add_argument('--inputs', type=str, required=True, help='Path to input images')
+    parser.add_argument('--resize_factor', type=float, default=1.0, help='Factor to resize target image')
+    parser.add_argument('--grayscale', action='store_true', default=False, help='Convert to grayscale')
+    parser.add_argument('--pixel_density', type=float, default=0.7, 
+        help='Will effect number of images used to create the mosaic. 1 is 1 image per pixel, default=0.7')
+
+    args = parser.parse_args()
+
+    main(args)
 
 
