@@ -34,14 +34,22 @@ def getDominantColor(image, num_clusters=5):
 
     index_max = scipy.argmax(counts)                    # find most frequent
     peak = codes[index_max]
-    return peak
+    return tuple(peak)
 
-def createMosaic(target_img, input_imgs, repeat=True, resize_factor=1, keep_original=False):
+def findBestColorMatch(target, dominant_colors):
+    def distance(a, b):
+        return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
+
+    # closest value in the list
+    return min(dominant_colors, key=lambda x: distance(x, target))
+
+def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor=1, keep_original=False):
     """ Recreate a target image as a mosaic with multiple images
 
     Args
-        target_img : image to reproduce
-        input_imgs : images used to reproduce target_img
+        im_color_map : dictionnary {dominant_color: image}
+        dominant_colors : list of dominant colors, same order as images
+        images : list of images used to reproduce target_img
         repeat : use multiple time input images, default=True
         resize_factor : resize factor for target_img, default=1 (no resize)
         keep_original : keep the original and returns it
@@ -53,14 +61,20 @@ def createMosaic(target_img, input_imgs, repeat=True, resize_factor=1, keep_orig
 
         mosaic, original : the mosaic image, the original image
     """
+
     if resize_factor != 1:
         resized = resize(target_img, resize_factor)
+    else:
+        resized = target_img
     
     if keep_original:
         original = resized.copy()
 
+    # Copy image to create the mosaic
+    mosaic = np.zeros(resized.shape, np.uint8)
+
     #kernel_size = resized.shape[1]//len(input_imgs)
-    kernel_size = resized.shape[1]//100
+    kernel_size = resized.shape[1]//120
 
     col = resized.shape[1]//kernel_size
     row = resized.shape[0]//kernel_size
@@ -72,25 +86,55 @@ def createMosaic(target_img, input_imgs, repeat=True, resize_factor=1, keep_orig
                 x2 = kernel_size+(j*kernel_size)
                 y2 = kernel_size+(i*kernel_size)
                 color = getDominantColor(resized[y1:y2, x1:x2,:])
-                cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)         
+
+                # Find the image that fits best the curr dominant color
+                match = findBestColorMatch(color, dominant_colors)
+
+                # Resize and put the image in the corresponding rectangle
+                mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
+
+                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)         
             else:
                 x1 = 1+(j*kernel_size)
                 y1 = 1+(i*kernel_size)
                 x2 = kernel_size+(j*kernel_size)
                 y2 = kernel_size+(i*kernel_size)
                 color = getDominantColor(resized[y1:y2, x1:x2,:])
-                cv.rectangle(resized, (x1, y1), (x2, y2), color, -1)
+
+                # Find the image that fits best the curr dominant color
+                match = findBestColorMatch(color, dominant_colors)
+
+                # Resize and put the image in the corresponding rectangle
+                mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
+
+                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)
+
+                #color_rect = np.zeros((50,50,3), np.uint8)
+                #cv.rectangle(color_rect, (0, 0), (50, 50), color, -1)
+                #cv.imshow('color', color_rect)
+                #cv.imshow('match', images[dominant_colors.index(match)])
+                #cv.waitKey(0)
+                #cv.destroyAllWindows()
     if keep_original:
-        return resized, original
+        return mosaic, original
     else:
-        return resized
+        return mosaic
+
+
+def getDominantColors(images):
+    dominant_colors = []
+    for im in images:
+        dominant_colors.append(getDominantColor(im))
+
+    return dominant_colors 
+
 
 def main():
-    target_path = 'images/target/lena.jpg'
+    start = time.time()
+    target_path = 'images/target/bond.jpg'
     input_path = 'images/input/'
     image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
     input_files = []
-
     target_im = cv.imread(target_path)
 
     for subdir, _, files in os.walk(input_path):
@@ -101,8 +145,20 @@ def main():
 
     print('[INFO] Found {} input files.'.format(len(input_files)))
 
-    mosaic, original = createMosaic(target_im, input_files, repeat=True, resize_factor=0.30, keep_original=True)
-            
+    # Resize image to find clusters faster
+    images = []
+    for file in input_files:
+        im = cv.imread(file)
+        images.append(resize(im, 0.2))
+
+    # Create mapping for each image
+    dominant_colors = getDominantColors(images)
+
+    # Create the mosaic
+    mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=0.4, keep_original=True)
+
+    print('[Info] Finished, took {} ms'.format(time.time() - start))       
+
     cv.imshow('lena', original)
     cv.imshow('colors', mosaic)
 
@@ -110,4 +166,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
