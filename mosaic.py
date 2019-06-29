@@ -12,9 +12,25 @@ import scipy.cluster
 
 import imageio
 
+from multiprocessing.pool import ThreadPool
 
 import time
 
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()        
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('%r  %2.2f ms' % \
+                  (method.__name__, (te - ts) * 1000))
+        return result   
+    return timed
+
+@timeit
 def resize(image, factor):
     width = int(image.shape[1] * factor)
     height = int(image.shape[0] * factor)
@@ -22,6 +38,7 @@ def resize(image, factor):
     # resize image
     return cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
+@timeit
 def getDominantColor(image, num_clusters=5):
     shape = image.shape
     ar = image.reshape(scipy.product(shape[:2]), shape[2]).astype(float)
@@ -36,6 +53,7 @@ def getDominantColor(image, num_clusters=5):
     peak = codes[index_max]
     return tuple(peak)
 
+@timeit
 def findBestColorMatch(target, dominant_colors):
     def distance(a, b):
         return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
@@ -43,6 +61,7 @@ def findBestColorMatch(target, dominant_colors):
     # closest value in the list
     return min(dominant_colors, key=lambda x: distance(x, target))
 
+@timeit
 def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor=1, keep_original=False):
     """ Recreate a target image as a mosaic with multiple images
 
@@ -91,9 +110,7 @@ def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor
                 match = findBestColorMatch(color, dominant_colors)
 
                 # Resize and put the image in the corresponding rectangle
-                mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
-
-                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)         
+                mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)        
             else:
                 x1 = 1+(j*kernel_size)
                 y1 = 1+(i*kernel_size)
@@ -107,20 +124,12 @@ def createMosaic(target_img, dominant_colors, images, repeat=True, resize_factor
                 # Resize and put the image in the corresponding rectangle
                 mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
 
-                #cv.rectangle(mosaic, (x1, y1), (x2, y2), color, -1)
-
-                #color_rect = np.zeros((50,50,3), np.uint8)
-                #cv.rectangle(color_rect, (0, 0), (50, 50), color, -1)
-                #cv.imshow('color', color_rect)
-                #cv.imshow('match', images[dominant_colors.index(match)])
-                #cv.waitKey(0)
-                #cv.destroyAllWindows()
     if keep_original:
         return mosaic, original
     else:
         return mosaic
 
-
+@timeit
 def getDominantColors(images):
     dominant_colors = []
     for im in images:
@@ -128,7 +137,7 @@ def getDominantColors(images):
 
     return dominant_colors 
 
-
+@timeit
 def main():
     start = time.time()
     target_path = 'images/target/bond.jpg'
@@ -151,16 +160,23 @@ def main():
         im = cv.imread(file)
         images.append(resize(im, 0.2))
 
+    # Create a pool of thread 
+    # s(same as number of cores)
+    pool = ThreadPool()
     # Create mapping for each image
-    dominant_colors = getDominantColors(images)
+    dominant_colors = pool.map(getDominantColor, images) 
+    pool.close() 
+    pool.join()
+    # Create mapping for each image (single thread)
+    #dominant_colors = getDominantColors(images)
 
     # Create the mosaic
     mosaic, original = createMosaic(target_im, dominant_colors, images, repeat=True, resize_factor=0.4, keep_original=True)
 
-    print('[Info] Finished, took {} ms'.format(time.time() - start))       
+    print('[Info] Finished, took {} s'.format(time.time() - start))       
 
-    cv.imshow('lena', original)
-    cv.imshow('colors', mosaic)
+    cv.imshow(os.path.basename(target_path  ), original)
+    cv.imshow('mosaic', mosaic)
 
     cv.waitKey(0)
 
