@@ -14,7 +14,7 @@ import scipy.cluster
 
 import imageio
 
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 
 import time
 
@@ -32,7 +32,7 @@ def timeit(method):
         return result   
     return timed
 
-@timeit
+
 def resize(image, factor):
     width = int(image.shape[1] * factor)
     height = int(image.shape[0] * factor)
@@ -40,7 +40,7 @@ def resize(image, factor):
     # resize image
     return cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
-@timeit
+
 def getDominantColor(image, num_clusters=5):
     shape = image.shape
     ar = image.reshape(scipy.product(shape[:2]), shape[2]).astype(float)
@@ -55,7 +55,15 @@ def getDominantColor(image, num_clusters=5):
     peak = codes[index_max]
     return tuple(peak)
 
-@timeit
+
+def getDominantColors(images):
+    dominant_colors = []
+    for im in images:
+        dominant_colors.append(getDominantColor(im))
+
+    return dominant_colors 
+
+
 def findBestColorMatch(target, dominant_colors):
     def distance(a, b):
         return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
@@ -63,7 +71,7 @@ def findBestColorMatch(target, dominant_colors):
     # closest value in the list
     return min(dominant_colors, key=lambda x: distance(x, target))
 
-@timeit
+
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
     repeat=True, resize_factor=1, keep_original=False, multithreading=True, num_workers=4):
     """ Recreate a target image as a mosaic with multiple images
@@ -149,7 +157,7 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
     if args.multithreading:
         # Use thread to calculate dominant colors
-        pool = ThreadPool()
+        pool = Pool()
         # Create mapping for each image
         colors = pool.map(getDominantColor, patches) 
         pool.close() 
@@ -157,8 +165,6 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     
         # Reconstruct image
         k = 0
-        col = resized.shape[1]//kernel_j_size
-        row = resized.shape[0]//kernel_i_size
         for i in range(row):
             for j in range(col):
                 if i == 0:
@@ -183,15 +189,6 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     else:
         return mosaic
 
-@timeit
-def getDominantColors(images):
-    dominant_colors = []
-    for im in images:
-        dominant_colors.append(getDominantColor(im))
-
-    return dominant_colors 
-
-@timeit
 def main(args):
     start = time.time()
     image_extensions = ('.png', '.jpg', '.jpeg', '.jfiff', '.tiff', '.bmp')
@@ -224,7 +221,7 @@ def main(args):
     if args.multithreading:
         # Create a pool of thread 
         # (same as number of cores)
-        pool = ThreadPool(args.num_workers)
+        pool = Pool(args.num_workers)
         # Create mapping for each image
         dominant_colors = pool.map(getDominantColor, images) 
         pool.close() 
