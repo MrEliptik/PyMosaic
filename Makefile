@@ -18,7 +18,7 @@ bond3_RGB_multithreading:
 
 bond3_grayscale_multithreading:
 	$(python-bin) mosaic.py --target_im=images/target/bond3.jpg \
-		--inputs=images/input/ --resize_factor=1 --grayscale --multithreading --num_workers=4
+		--inputs=images/input/ --resize_factor=3 --pixel_density=0.2 --grayscale --multithreading --num_workers=10 --save
 
 bond3_grayscale_autocontrast_multithreading:
 	$(python-bin) mosaic.py --target_im=images/target/bond3.jpg \
