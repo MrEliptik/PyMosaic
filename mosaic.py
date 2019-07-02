@@ -23,7 +23,10 @@ def resize(image, factor):
     height = int(image.shape[0] * factor)
     dim = (width, height)
     # resize image
-    return cv.resize(image, dim, interpolation = cv.INTER_AREA)
+    if factor > 1:
+        return cv.resize(image, dim, interpolation = cv.INTER_CUBIC)
+    else:
+        return cv.resize(image, dim, interpolation = cv.INTER_AREA)
 
 
 def getDominantColor(image, num_clusters=5):
@@ -56,6 +59,27 @@ def findBestColorMatch(target, dominant_colors):
     # closest value in the list
     return min(dominant_colors, key=lambda x: distance(x, target))
 
+def autoContrast(im):
+    #-----Converting image to LAB Color model----------------------------------- 
+    lab = cv.cvtColor(im, cv.COLOR_BGR2LAB)
+    cv.imshow("lab",lab)
+    #-----Splitting the LAB image to different channels-------------------------
+    l, a, b = cv.split(lab)
+    cv.imshow('l_channel', l)
+    cv.imshow('a_channel', a)
+    cv.imshow('b_channel', b)
+
+    #-----Applying CLAHE to L-channel-------------------------------------------
+    clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+    cv.imshow('CLAHE output', cl)
+
+    #-----Merge the CLAHE enhanced L-channel with the a and b channel-----------
+    limg = cv.merge((cl,a,b))
+    cv.imshow('limg', limg)
+
+    #-----Converting image from LAB Color model to RGB model--------------------
+    return cv.cvtColor(limg, cv.COLOR_LAB2BGR)
 
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
     repeat=True, resize_factor=1, keep_original=False, multithreading=True, num_workers=4):
@@ -78,7 +102,7 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
         mosaic, original : the mosaic image, the original image
     """
-
+    print(target_img.shape)
     if resize_factor != 1:
         resized = resize(target_img, resize_factor)
     else:
@@ -87,14 +111,16 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     if keep_original:
         original = resized.copy()
 
+    print(resized.shape)
+
     # Copy image to create the mosaic
     mosaic = np.zeros(resized.shape, np.uint8)
 
     #kernel_i_size = resized.shape[0]*pixel_density
     #kernel_j_size = resized.shape[1]*pixel_density
 
-    kernel_i_size = resized.shape[0]//100
-    kernel_j_size = resized.shape[0]//100
+    kernel_i_size = resized.shape[0]//150
+    kernel_j_size = resized.shape[0]//150
     print(kernel_i_size, kernel_j_size)
 
     print('kernel size: {},{}'.format(kernel_i_size, kernel_j_size))
@@ -180,6 +206,9 @@ def main(args):
     input_files = []
     target_im = cv.imread(args.target_im)
 
+    if args.contrast:
+        target_im = autoContrast(target_im)
+
     if args.grayscale:
         # Convert to grayscale and back to BGR to
         # keep the 3 channels
@@ -217,10 +246,13 @@ def main(args):
 
     # Create the mosaic
     mosaic, original = createMosaic(target_im, dominant_colors, images, 
-        pixel_density=args.pixel_density, repeat=True, resize_factor=1, 
+        pixel_density=args.pixel_density, repeat=True, resize_factor=args.resize_factor, 
         keep_original=True, multithreading=args.multithreading, num_workers=args.num_workers)
 
-    print('[Info] Finished, took {} s'.format(time.time() - start))       
+    print('[Info] Finished, took {} s'.format(time.time() - start))    
+
+    if args.save:
+        cv.imwrite(os.path.basename(args.target_im) + '_mosaic.jpg', mosaic)   
 
     cv.imshow(os.path.basename(args.target_im), original)
     cv.imshow('mosaic', mosaic)
@@ -240,6 +272,9 @@ if __name__ == "__main__":
         help='Use multiple thread to create the mosaic')
     parser.add_argument('--num_workers', type=int, default=4,
         help='Number of workers to use in multithreading')
+    parser.add_argument('--save', action='store_true', default=False, help='Save output mosaic')
+    parser.add_argument('--show', action='store_true', default=False, help='Show output mosaic')
+    parser.add_argument('--contrast', action='store_true', default=False, help='Apply auto contrast to target iamge')
 
     args = parser.parse_args()
 
