@@ -60,25 +60,20 @@ def findBestColorMatch(target, dominant_colors):
     return min(dominant_colors, key=lambda x: distance(x, target))
 
 def autoContrast(im):
-    #-----Converting image to LAB Color model----------------------------------- 
+    # Converting image to LAB Color model 
     lab = cv.cvtColor(im, cv.COLOR_BGR2LAB)
-    cv.imshow("lab",lab)
-    #-----Splitting the LAB image to different channels-------------------------
-    l, a, b = cv.split(lab)
-    cv.imshow('l_channel', l)
-    cv.imshow('a_channel', a)
-    cv.imshow('b_channel', b)
 
-    #-----Applying CLAHE to L-channel-------------------------------------------
+    # Splitting the LAB image to different channels
+    l, a, b = cv.split(lab)
+
+    # Applying CLAHE to L-channel
     clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     cl = clahe.apply(l)
-    cv.imshow('CLAHE output', cl)
 
-    #-----Merge the CLAHE enhanced L-channel with the a and b channel-----------
+    # Merge the CLAHE enhanced L-channel with the a and b channel
     limg = cv.merge((cl,a,b))
-    cv.imshow('limg', limg)
 
-    #-----Converting image from LAB Color model to RGB model--------------------
+    # Converting image from LAB Color model to RGB model
     return cv.cvtColor(limg, cv.COLOR_LAB2BGR)
 
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
@@ -116,11 +111,11 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     # Copy image to create the mosaic
     mosaic = np.zeros(resized.shape, np.uint8)
 
-    #kernel_i_size = resized.shape[0]*pixel_density
-    #kernel_j_size = resized.shape[1]*pixel_density
+    kernel_i_size = int(1//pixel_density)
+    kernel_j_size = int(1//pixel_density)
 
-    kernel_i_size = resized.shape[0]//150
-    kernel_j_size = resized.shape[0]//150
+    #kernel_i_size = resized.shape[0]//150
+    #kernel_j_size = resized.shape[0]//150
     print(kernel_i_size, kernel_j_size)
 
     print('kernel size: {},{}'.format(kernel_i_size, kernel_j_size))
@@ -168,7 +163,7 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
     if args.multithreading:
         # Use thread to calculate dominant colors
-        pool = Pool()
+        pool = Pool(num_workers)
         # Create mapping for each image
         colors = pool.map(getDominantColor, patches) 
         pool.close() 
