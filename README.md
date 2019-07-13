@@ -1,6 +1,6 @@
 # PyMosaic
 
-Recreate a target images bymaking a mosaic out of multiple input images
+Recreate a target images by making a mosaic out of multiple input images
 
 
 ## TODO
