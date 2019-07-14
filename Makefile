@@ -71,8 +71,20 @@ lena_RGB_multithreading:
 		--output_size_factor=5 --contrast 								\
 		--multithreading --num_workers=12 --save
 
-bond3_RGB_multithreading:
+bond3_RGB_color_fiter:
 	$(python-bin) mosaic.py --target_im=images/target/bond3.jpg			\
+		--inputs=images/input/ --resize_factor=1 --pixel_density=0.1	\
+		--output_size_factor=5 --contrast --color_filter				\
+		--save
+
+lena_RGB_color_filter:
+	$(python-bin) mosaic.py --target_im=images/target/lena.jpg			\
 		--inputs=images/input/ --resize_factor=1 --pixel_density=0.25	\
 		--output_size_factor=5 --contrast --color_filter				\
-		--multithreading --num_workers=12 --save
+		--multithreading --num_workers=12 --save 
+
+stranger_things_RGB_color_filter:
+	$(python-bin) mosaic.py --target_im=images/target/stranger_things.jpg			\
+		--inputs=images/input/ --resize_factor=1 --pixel_density=0.25	\
+		--output_size_factor=5 --contrast --color_filter				\
+		--multithreading --num_workers=12 --save 
