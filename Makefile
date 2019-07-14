@@ -14,6 +14,8 @@ bond3_RGB_multithreading:
 		--inputs=images/input/ --resize_factor=1 --multithreading 	\
 		-num_workers=4
 
+##### GRAYSCALE #####
+
 bond3_grayscale_multithreading:
 	$(python-bin) mosaic.py --target_im=images/target/bond3.jpg 				\
 		--inputs=images/input/ --resize_factor=1 --pixel_density=0.25 			\
@@ -61,3 +63,10 @@ stranger_things_grayscale_multithreading:
 		--inputs=images/input/ --resize_factor=1 --pixel_density=0.3				\
 		--grayscale --output_size_factor=10 --multithreading 						\
 		--num_workers=12 --save
+
+##### RGB #####
+lena_RGB_multithreading:
+	$(python-bin) mosaic.py --target_im=images/target/lena.jpg			\
+		--inputs=images/input/ --resize_factor=1 --pixel_density=0.25	\
+		--output_size_factor=5 --contrast 								\
+		--multithreading --num_workers=12 --save
