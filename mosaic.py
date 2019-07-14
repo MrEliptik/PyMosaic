@@ -55,10 +55,20 @@ def distance(a, b):
     return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
 
 def colorDistance(a, b): 
-    return (distance(a[0], b[0]), distance(a[1], b[1]), distance(a[2], b[2]))
+    return (abs(a[0] - b[0]), abs(a[1] - b[1]), abs(a[2] - b[2]))
 
 def findBestColorMatch(target, dominant_colors):
     # closest value in the list
+    '''
+    smallest_dist = 100000000
+    color = None
+    for x in dominant_colors:
+        dist = distance(x, target)
+        if dist < smallest_dist:
+            smallest_dist = dist
+            color = x
+    return smallest_dist, color
+    '''
     return min(dominant_colors, key=lambda x: distance(x, target))
 
 def autoContrast(im):
@@ -96,7 +106,7 @@ def apply_color_overlay(frame, intensity=0.2, b = 0,g = 0,r = 0):
 
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
     repeat=True, resize_factor=1, keep_original=False, multithreading=True, 
-    num_workers=4, output_size_factor=2):
+    num_workers=4, output_size_factor=2, color_filter=False):
     """ Recreate a target image as a mosaic with multiple images
 
     Args
@@ -165,26 +175,31 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
                 color = getDominantColor(resized[y1:y2, x1:x2,:])
 
                 # Find the image that fits best the curr dominant color
+                #match, match_color = findBestColorMatch(color, dominant_colors)
+                #print(match, match_color)
                 match = findBestColorMatch(color, dominant_colors)
+                #print(match)
+                #print(dominant_colors.index(match))
                     
                 # Get the image
                 im_match = images[dominant_colors.index(match)]
 
                 if color_filter:
                     delta = colorDistance(match, color)
-                    print(delta)
-                    cv.imshow('image match', im_match)
-                    im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
-                    cv.imshow('match after filtering', im_match)
-                    color_square = np.zeros(resized.shape, np.uint8)
-                    color_square[:] = color
-                    cv.imshow('color', color_square)
-                    cv.waitKey(0)
-                    cv.destroyAllWindows()
+                    #print(delta)
+                    #cv.imshow('image match', im_match)
+                    im_match = apply_color_overlay(im_match, intensity=0.8, b=delta[0], g=delta[1], r=delta[2])
+                    #cv.imshow('match after filtering', im_match)
+                    #color_square = np.zeros(im_match.shape, np.uint8)
+                    #color_square[:] = color
+                    #cv.imshow('color', color_square)
+                    #cv.waitKey(0)
+                    #cv.destroyAllWindows()
 
                 # Resize and put the image in the corresponding rectangle
-                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(images[dominant_colors.index(match)], 
-                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), interpolation=cv.INTER_CUBIC)
+                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(im_match, 
+                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), 
+                                                interpolation=cv.INTER_CUBIC)
 
     if args.multithreading:
         # Use thread to calculate dominant colors
@@ -210,8 +225,16 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
                 match = findBestColorMatch(colors[k], dominant_colors)
 
-                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(images[dominant_colors.index(match)], 
-                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), interpolation=cv.INTER_CUBIC)
+                # Get the image
+                im_match = images[dominant_colors.index(match)]
+
+                if color_filter:
+                    delta = colorDistance(match, colors[k])
+                    im_match = apply_color_overlay(im_match, intensity=0.8, b=delta[0], g=delta[1], r=delta[2])
+
+                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(im_match, 
+                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), 
+                                                interpolation=cv.INTER_CUBIC)
                 k += 1
 
     if keep_original:
