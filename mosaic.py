@@ -51,11 +51,13 @@ def getDominantColors(images):
 
     return dominant_colors 
 
+def distance(a, b):
+    return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
+
+def colorDistance(a, b): 
+    return (distance(a[0], b[0]), distance(a[1], b[1]), distance(a[2], b[2]))
 
 def findBestColorMatch(target, dominant_colors):
-    def distance(a, b):
-        return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
-
     # closest value in the list
     return min(dominant_colors, key=lambda x: distance(x, target))
 
@@ -76,8 +78,24 @@ def autoContrast(im):
     # Converting image from LAB Color model to RGB model
     return cv.cvtColor(limg, cv.COLOR_LAB2BGR)
 
+def verify_alpha_channel(frame):
+    try:
+        frame.shape[3] # 4th position
+    except IndexError:
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2BGRA)
+    return frame
+
+def apply_color_overlay(frame, intensity=0.2, b = 0,g = 0,r = 0):
+    frame = verify_alpha_channel(frame)
+    frame_h, frame_w, frame_c = frame.shape
+    color_bgra = (b, g, r, 1)
+    overlay = np.full((frame_h, frame_w, 4), color_bgra, dtype='uint8')
+    cv.addWeighted(overlay, intensity, frame, 1.0, 0, frame)
+    frame = cv.cvtColor(frame, cv.COLOR_BGRA2BGR)
+    return frame
+
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
-    repeat=True, resize_factor=1, keep_original=False, multithreading=True, num_workers=4):
+    repeat=True, resize_factor=1, keep_original=False, multithreading=True, num_workers=4, color_filter=False):
     """ Recreate a target image as a mosaic with multiple images
 
     Args
@@ -138,11 +156,27 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
                     patches.append(resized[y1:y2, x1:x2,:])
                 else:
                     color = getDominantColor(resized[y1:y2, x1:x2,:])
-                    # Find the image that fits best the curr dominant color
+                    # Find the color that fits best the curr dominant color
                     match = findBestColorMatch(color, dominant_colors)
+
+                    # Get the image
+                    im_match = images[dominant_colors.index(match)]
+
+                    if color_filter:
+                        delta = colorDistance(match, color)
+                        print(delta)
+                        cv.imshow('image match', im_match)
+                        im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
+                        cv.imshow('match after filtering', im_match)
+                        color_square = np.zeros(resized.shape, np.uint8)
+                        color_square[:] = color
+                        cv.imshow('color', color_square)
+                        cv.waitKey(0)
+                        cv.destroyAllWindows()
+
                     # Resize and put the image in the corresponding rectangle
-                    mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], 
-                                                    dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)        
+                    mosaic[y1:y2, x1:x2,:] = cv.resize(im_match, 
+                                                dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)        
             else:
                 x1 = 1+(j*kernel_j_size)
                 y1 = 1+(i*kernel_i_size)
@@ -157,8 +191,23 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
                     # Find the image that fits best the curr dominant color
                     match = findBestColorMatch(color, dominant_colors)
 
+                    # Get the image
+                    im_match = images[dominant_colors.index(match)]
+
+                    if color_filter:
+                        delta = distance(match, color)
+                        print(delta)
+                        cv.imshow('image match', im_match)
+                        im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
+                        cv.imshow('match after filtering', im_match)
+                        color_square = np.zeros(resized.shape, np.uint8)
+                        color_square[:] = color
+                        cv.imshow('color', color_square)
+                        cv.waitKey(0)
+                        cv.destroyAllWindows()
+
                     # Resize and put the image in the corresponding rectangle
-                    mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], 
+                    mosaic[y1:y2, x1:x2,:] = cv.resize(im_match, 
                                                     dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
 
     if args.multithreading:
@@ -241,8 +290,10 @@ def main(args):
 
     # Create the mosaic
     mosaic, original = createMosaic(target_im, dominant_colors, images, 
-        pixel_density=args.pixel_density, repeat=True, resize_factor=args.resize_factor, 
-        keep_original=True, multithreading=args.multithreading, num_workers=args.num_workers)
+        pixel_density=args.pixel_density, repeat=True, 
+        resize_factor=args.resize_factor, keep_original=True, 
+        multithreading=args.multithreading, num_workers=args.num_workers, 
+        color_filter=args.color_filter)
 
     print('[Info] Finished, took {} s'.format(time.time() - start))    
 
@@ -269,7 +320,8 @@ if __name__ == "__main__":
         help='Number of workers to use in multithreading')
     parser.add_argument('--save', action='store_true', default=False, help='Save output mosaic')
     parser.add_argument('--show', action='store_true', default=False, help='Show output mosaic')
-    parser.add_argument('--contrast', action='store_true', default=False, help='Apply auto contrast to target iamge')
+    parser.add_argument('--contrast', action='store_true', default=False, help='Apply auto contrast to target image')
+    parser.add_argument('--color_filter', action='store_true', default=False, help='Apply color filters to get closer to the desired color')
 
     args = parser.parse_args()
 
