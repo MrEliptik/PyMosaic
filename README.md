@@ -11,5 +11,5 @@ Recreate a target images by making a mosaic out of multiple input images
 - [X] Add option to save mosaic
 - [X] Add/test contrast increasing before mosaic
 - [X] Use pixel density argument
-- [] Add color filtering option (for smoother results)
+- [X] Add color filtering option (for smoother results)
 - [] Add web interface
