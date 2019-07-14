@@ -27,3 +27,7 @@ bond3_grayscale_autocontrast_multithreading:
 girl_grayscale_multithreading:
 	$(python-bin) mosaic.py --target_im=images/target/girl.jpg \
 		--inputs=images/input/ --resize_factor=1 --grayscale --multithreading --num_workers=4 --save
+
+bond3_RGB_color_filter:
+	$(python-bin) mosaic.py --target_im=images/target/bond3.jpg \
+		--inputs=images/input/ --resize_factor=1 --pixel_density=0.2 --color_filter
