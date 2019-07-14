@@ -95,7 +95,8 @@ def apply_color_overlay(frame, intensity=0.2, b = 0,g = 0,r = 0):
     return frame
 
 def createMosaic(target_img, dominant_colors, images, pixel_density=0.7, 
-    repeat=True, resize_factor=1, keep_original=False, multithreading=True, num_workers=4, color_filter=False):
+    repeat=True, resize_factor=1, keep_original=False, multithreading=True, 
+    num_workers=4, output_size_factor=2):
     """ Recreate a target image as a mosaic with multiple images
 
     Args
@@ -115,7 +116,7 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
         mosaic, original : the mosaic image, the original image
     """
-    print(target_img.shape)
+    print('Original size: {}'.format(target_img.shape))
     if resize_factor != 1:
         resized = resize(target_img, resize_factor)
     else:
@@ -124,19 +125,21 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     if keep_original:
         original = resized.copy()
 
-    print(resized.shape)
+    print('Resized size: {}'.format(resized.shape))
+
+    h,w,c = resized.shape
 
     # Copy image to create the mosaic
-    mosaic = np.zeros(resized.shape, np.uint8)
+    mosaic = np.zeros((int(h*output_size_factor), int(w*output_size_factor), c), np.uint8)
 
     kernel_i_size = int(1//pixel_density)
     kernel_j_size = int(1//pixel_density)
 
-    #kernel_i_size = resized.shape[0]//150
-    #kernel_j_size = resized.shape[0]//150
-    print(kernel_i_size, kernel_j_size)
+    kernel_i_mosaic = int(kernel_i_size*output_size_factor)
+    kernel_j_mosaic = int(kernel_j_size*output_size_factor)
 
-    print('kernel size: {},{}'.format(kernel_i_size, kernel_j_size))
+    print('Kernel size: {},{}'.format(kernel_i_size, kernel_j_size))
+    print('Kernel mosaic size: {},{}'.format(kernel_i_mosaic, kernel_j_mosaic))
 
     colors = []
     patches = []
@@ -146,69 +149,42 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
     row = resized.shape[0]//kernel_i_size
     for i in range(row):
         for j in range(col):
-            if i == 0:
-                x1 = j*kernel_j_size
-                y1 = i*kernel_i_size
-                x2 = kernel_j_size+(j*kernel_j_size)
-                y2 = kernel_i_size+(i*kernel_i_size)
+            x1 = j*kernel_j_size
+            y1 = i*kernel_i_size
+            x2 = kernel_j_size+(j*kernel_j_size)
+            y2 = kernel_i_size+(i*kernel_i_size)
 
-                if args.multithreading: 
-                    patches.append(resized[y1:y2, x1:x2,:])
-                else:
-                    color = getDominantColor(resized[y1:y2, x1:x2,:])
-                    # Find the color that fits best the curr dominant color
-                    match = findBestColorMatch(color, dominant_colors)
+            x1_mosaic = j*kernel_j_mosaic
+            y1_mosaic = i*kernel_i_mosaic
+            x2_mosaic = kernel_j_mosaic+(j*kernel_j_mosaic)
+            y2_mosaic = kernel_i_mosaic+(i*kernel_i_mosaic)
 
-                    # Get the image
-                    im_match = images[dominant_colors.index(match)]
-
-                    if color_filter:
-                        delta = colorDistance(match, color)
-                        print(delta)
-                        cv.imshow('image match', im_match)
-                        im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
-                        cv.imshow('match after filtering', im_match)
-                        color_square = np.zeros(resized.shape, np.uint8)
-                        color_square[:] = color
-                        cv.imshow('color', color_square)
-                        cv.waitKey(0)
-                        cv.destroyAllWindows()
-
-                    # Resize and put the image in the corresponding rectangle
-                    mosaic[y1:y2, x1:x2,:] = cv.resize(im_match, 
-                                                dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)        
+            if args.multithreading:
+                patches.append(resized[y1:y2, x1:x2,:])
             else:
-                x1 = 1+(j*kernel_j_size)
-                y1 = 1+(i*kernel_i_size)
-                x2 = kernel_j_size+(j*kernel_j_size)
-                y2 = kernel_i_size+(i*kernel_i_size)
+                color = getDominantColor(resized[y1:y2, x1:x2,:])
 
-                if args.multithreading:
-                    patches.append(resized[y1:y2, x1:x2,:])
-                else:
-                    color = getDominantColor(resized[y1:y2, x1:x2,:])
+                # Find the image that fits best the curr dominant color
+                match = findBestColorMatch(color, dominant_colors)
+                    
+                # Get the image
+                im_match = images[dominant_colors.index(match)]
 
-                    # Find the image that fits best the curr dominant color
-                    match = findBestColorMatch(color, dominant_colors)
+                if color_filter:
+                    delta = colorDistance(match, color)
+                    print(delta)
+                    cv.imshow('image match', im_match)
+                    im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
+                    cv.imshow('match after filtering', im_match)
+                    color_square = np.zeros(resized.shape, np.uint8)
+                    color_square[:] = color
+                    cv.imshow('color', color_square)
+                    cv.waitKey(0)
+                    cv.destroyAllWindows()
 
-                    # Get the image
-                    im_match = images[dominant_colors.index(match)]
-
-                    if color_filter:
-                        delta = distance(match, color)
-                        print(delta)
-                        cv.imshow('image match', im_match)
-                        im_match = apply_color_overlay(im_match, intensity=0.6, b=delta[0], g=delta[1], r=delta[2])
-                        cv.imshow('match after filtering', im_match)
-                        color_square = np.zeros(resized.shape, np.uint8)
-                        color_square[:] = color
-                        cv.imshow('color', color_square)
-                        cv.waitKey(0)
-                        cv.destroyAllWindows()
-
-                    # Resize and put the image in the corresponding rectangle
-                    mosaic[y1:y2, x1:x2,:] = cv.resize(im_match, 
-                                                    dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
+                # Resize and put the image in the corresponding rectangle
+                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(images[dominant_colors.index(match)], 
+                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), interpolation=cv.INTER_CUBIC)
 
     if args.multithreading:
         # Use thread to calculate dominant colors
@@ -222,21 +198,20 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
         k = 0
         for i in range(row):
             for j in range(col):
-                if i == 0:
-                    x1 = j*kernel_j_size
-                    y1 = i*kernel_i_size
-                    x2 = kernel_j_size+(j*kernel_j_size)
-                    y2 = kernel_i_size+(i*kernel_i_size)
-                else:
-                    x1 = 1+(j*kernel_j_size)
-                    y1 = 1+(i*kernel_i_size)
-                    x2 = kernel_j_size+(j*kernel_j_size)
-                    y2 = kernel_i_size+(i*kernel_i_size)
+                x1 = j*kernel_j_size
+                y1 = i*kernel_i_size
+                x2 = kernel_j_size+(j*kernel_j_size)
+                y2 = kernel_i_size+(i*kernel_i_size)
+
+                x1_mosaic = (j*kernel_j_mosaic)
+                y1_mosaic = (i*kernel_i_mosaic)
+                x2_mosaic = kernel_j_mosaic+(j*kernel_j_mosaic)
+                y2_mosaic = kernel_i_mosaic+(i*kernel_i_mosaic)
 
                 match = findBestColorMatch(colors[k], dominant_colors)
 
-                mosaic[y1:y2, x1:x2,:] = cv.resize(images[dominant_colors.index(match)], 
-                                                    dsize=(x2-x1, y2-y1), interpolation=cv.INTER_CUBIC)
+                mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(images[dominant_colors.index(match)], 
+                                                dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), interpolation=cv.INTER_CUBIC)
                 k += 1
 
     if keep_original:
@@ -293,12 +268,14 @@ def main(args):
         pixel_density=args.pixel_density, repeat=True, 
         resize_factor=args.resize_factor, keep_original=True, 
         multithreading=args.multithreading, num_workers=args.num_workers, 
-        color_filter=args.color_filter)
+        output_size_factor=args.output_size_factor, color_filter=args.color_filter)
 
     print('[Info] Finished, took {} s'.format(time.time() - start))    
 
     if args.save:
-        cv.imwrite(os.path.basename(args.target_im) + '_mosaic.jpg', mosaic)   
+        cv.imwrite(
+            os.path.join('results', os.path.basename(args.target_im) + '_mosaic.jpg'),
+            mosaic)   
 
     cv.imshow(os.path.basename(args.target_im), original)
     cv.imshow('mosaic', mosaic)
@@ -310,6 +287,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Use many images to recreate a target image as a mosaic.')
     parser.add_argument('--target_im', type=str, required=True, help='Path to target image')
     parser.add_argument('--inputs', type=str, required=True, help='Path to input images')
+    parser.add_argument('--output_size_factor', type=float, help='How much times the output should be bigger than the target')
     parser.add_argument('--resize_factor', type=float, default=1.0, help='Factor to resize target image')
     parser.add_argument('--grayscale', action='store_true', default=False, help='Convert to grayscale')
     parser.add_argument('--pixel_density', type=float, default=0.7, 
