@@ -55,7 +55,7 @@ def distance(a, b):
     return pow(abs(a[0] - b[0]), 2) + pow(abs(a[1] - b[2]), 2)
 
 def colorDistance(a, b): 
-    return (abs(a[0] - b[0]), abs(a[1] - b[1]), abs(a[2] - b[2]))
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
 
 def findBestColorMatch(target, dominant_colors):
     # closest value in the list
@@ -188,7 +188,7 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
                     delta = colorDistance(match, color)
                     #print(delta)
                     #cv.imshow('image match', im_match)
-                    im_match = apply_color_overlay(im_match, intensity=0.8, b=delta[0], g=delta[1], r=delta[2])
+                    im_match = apply_color_overlay(im_match, intensity=1, b=delta[0], g=delta[1], r=delta[2])
                     #cv.imshow('match after filtering', im_match)
                     #color_square = np.zeros(im_match.shape, np.uint8)
                     #color_square[:] = color
@@ -230,11 +230,18 @@ def createMosaic(target_img, dominant_colors, images, pixel_density=0.7,
 
                 if color_filter:
                     delta = colorDistance(match, colors[k])
-                    im_match = apply_color_overlay(im_match, intensity=0.8, b=delta[0], g=delta[1], r=delta[2])
+                    # handle only the case were we add color to match the target
+                    if delta[0] > 0 and delta[1] > 0 and delta[2]  > 0:
+                        im_match = apply_color_overlay(im_match, intensity=1, b=delta[0], g=delta[1], r=delta[2])
 
                 mosaic[y1_mosaic:y2_mosaic, x1_mosaic:x2_mosaic,:] = cv.resize(im_match, 
                                                 dsize=(x2_mosaic-x1_mosaic, y2_mosaic-y1_mosaic), 
                                                 interpolation=cv.INTER_CUBIC)
+                '''
+                print('Color: {}'.format(colors[k]))
+                print('Match: {}'.format(match))
+                print('Match filter {}'.format(getDominantColor(im_match)))
+                '''
                 k += 1
 
     if keep_original:
