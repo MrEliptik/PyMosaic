@@ -7,7 +7,7 @@ Recreate a target images by making a mosaic out of multiple input images.
 ## Examples
 
 <p align="center">
-    <img src="https://i.imgur.com/n82gCys.jpg" alt="bond grayscale mosaic examples"/>
+    <img src="https://i.imgur.com/q7yQ1KE.jpg" alt="bond grayscale mosaic examples"/>
 </p>
 
 
