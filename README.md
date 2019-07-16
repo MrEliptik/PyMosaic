@@ -50,6 +50,44 @@ Resulting image
 
 ## How to use
 
+You need to run `python mosaic.py` with the arguments described beneath. Take a look at the makefile to see well working examples.
+
+### Makefile
+
+If you want to use the Makefile provided, please change the first line 
+
+    python-bin = ~/.pyenv/versions/3.6.7/envs/pymosaic/bin/python
+
+to your python bin path.
+
+### Required arguments
+
+- `--target_im`             : Path to target image
+- `--inputs`                : Path to input images
+
+### Optional arguments
+
+- `--output_size_factor`    : How much times the output should be bigger than the target
+- `--resize_factor`         : Factor to resize target image
+- `--grayscale`             : Convert to grayscale
+- `--contrast`              : Apply auto contrast to target image
+- `--color_filter`          : Apply color filters to get closer to the desired color
+- `--pixel_density`         : Path to target image
+- `--multithreading`        : Use multiple thread to create the mosaic
+- `--num_workers`           : Number of workers to use in multithreading
+- `--save`                  : Save the output mosaic in *results/*
+- `--show`                  : Show output mosaic
+
+### Recommended arguments
+
+From what I've experienced, using `--contrast` in combination with `--grayscale` yields the best results. To keep the process short enough, use `--multithreading` with the highest `--num_workers` for your machine.
+
+Don't forget `--save` to actually save the created mosaic!
+
+## How does it work?
+
+I'm in the process of writing a post on my [blog](https://www.blog.victormeunier.com) to give a detailed tutorial on that.
+
 ## Requirements
 
 Simply run
@@ -65,6 +103,8 @@ Simply run
 - [X] Add/test contrast increasing before mosaic
 - [X] Use pixel density argument
 - [X] Add color filtering option (for smoother results)
+- [X] Add option to choose to display the output or not
+- [] Handle case where kernel size = 1
+- [] Handle case where kernel size is > 1 and < to kmean clusters (3)
 - [] Improve color filtering
-- [] Add option to choose to display the output or not
 - [] Add web interface
