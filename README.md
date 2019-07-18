@@ -104,6 +104,7 @@ Simply run
 - [X] Use pixel density argument
 - [X] Add color filtering option (for smoother results)
 - [X] Add option to choose to display the output or not
+- [] Add script to download input images (from ImageNet)
 - [] Handle case where kernel size = 1
 - [] Handle case where kernel size is > 1 and < to kmean clusters (3)
 - [] Improve color filtering
