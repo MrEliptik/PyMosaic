@@ -1,7 +1,5 @@
 # PyMosaic
 
-**!README IN CONSTRUCTION!**
-
 Recreate a target images by making a mosaic out of multiple input images.
 
 ## Examples
